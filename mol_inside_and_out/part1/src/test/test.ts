@@ -9,5 +9,5 @@ export function test(desc: string, fn: () => void) {
 
 export function assertEqual(a: any, b: any) {
     if (a === b) return
-    throw new Error(`Not equal:\n\ta="${a}"\n\tb="${b}"`)
+    throw new Error(`Not equal:\n\texpectation="${a}" : ${typeof a}\n\treality="${b}" : ${typeof b}`)
 }

@@ -5,6 +5,7 @@ class Atom<Value> {
 
     cachedValue: Value
     cachedNext: any
+    autorun = false
     
     slaves = new Set<Atom<any>>()
     masters = new Set<Atom<any>>()
@@ -43,18 +44,35 @@ class Atom<Value> {
     put(next: any) {
         this.cachedNext = next
         this.outdate()
-        return this.cachedValue
     }
     
     outdate() {
         this.status = 'outdated'
 
-        if (this.slaves.size === 0) {
-            this.actualize()
-        }
-
         for (const slave of this.slaves) {
             slave.outdate()
+        }
+        
+        if (this.autorun === true) {
+            Atom.scheduleTask(this, () => this.actualize())
+            setTimeout(() => Atom.executeTasks(), 0)
+        }
+    }
+    
+    static queue = []
+
+    static scheduleTask(key, task) {
+        this.queue.push({ key, task })
+    }
+
+    static executeTasks() {
+        while (this.queue.length > 0) {
+            const deferred = this.queue.pop()
+            if (deferred === null) continue
+            for (let i = 0; i < this.queue.length; i++) {
+                if (this.queue[i].key === deferred.key) this.queue[i] = null
+            }
+            deferred.task()
         }
     }
 }

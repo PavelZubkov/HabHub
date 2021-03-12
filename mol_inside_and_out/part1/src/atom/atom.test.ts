@@ -29,13 +29,57 @@ test('change value', () => {
     assertEqual(name.get(), 'Username')
 })
 
-test('auto actualization', () => {
+test('actualization when called "get"', () => {
+    const TAX = 1.2
+
     const count = new Atom('count', next => next ?? 1)
-    const cost = new Atom('cost', () => 5)
-    const total = new Atom('total', () => cost.get() * count.get())
+    const subTotal = new Atom('cost', () => 5 * count.get())
+    const total = new Atom('total', () => subTotal.get() * TAX)
     
-    assertEqual(total.get(), 5 * 1)
+    assertEqual(total.get(), 5 * 1 * TAX)
     count.put(2)
-    assertEqual(total.get(), 5 * 2)
+    assertEqual(total.get(), 5 * 2 * TAX)
 })
 
+test('disable laziness when autorun enabled', () => {
+    const TAX = 2
+    let lastTotal
+
+    const count = new Atom('count', next => next ?? 1)
+    const subTotal = new Atom('cost', () => 5 * count.get())
+    const total = new Atom('total', () => {
+        lastTotal = subTotal.get() * TAX 
+        return lastTotal
+    })
+    total.autorun = true
+
+    total.get()
+    assertEqual(lastTotal, 5 * 1 * TAX)
+
+    count.put(2)
+    Atom.executeTasks() // Run deferred tasks manually
+
+    assertEqual(lastTotal, 5 * 2 * TAX)
+})
+
+test('batched actualization', () => {
+    const TAX = 2
+    let callCount = 0
+
+    const count = new Atom('count', next => next ?? 1)
+    const subTotal = new Atom('cost', price => (price ?? 5) * count.get())
+    const total = new Atom('total', () => {
+        callCount += 1
+        return subTotal.get() * TAX 
+    })
+    total.autorun = true
+
+    total.get()
+    assertEqual(callCount, 1)
+
+    count.put(2)
+    subTotal.put(10)
+    Atom.executeTasks() // run deferred tasks manually
+
+    assertEqual(callCount, 2)
+})

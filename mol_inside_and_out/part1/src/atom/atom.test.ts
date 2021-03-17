@@ -57,9 +57,26 @@ test('disable laziness when autorun enabled', () => {
     assertEqual(lastTotal, 5 * 1 * TAX)
 
     count.put(2)
-    Atom.executeTasks() // Run deferred tasks manually
+    Atom.executeScheduledTasks() // Run deferred tasks manually
 
     assertEqual(lastTotal, 5 * 2 * TAX)
+})
+
+test('recursive dependency', () => {
+    let a: Atom<number>
+    let b: Atom<number>
+
+    a = new Atom('a', () => b.get() + 1)
+    b = new Atom('b', () => a.get() + 1)
+    
+    let error
+    try {
+        b.get()
+    } catch (ex) {
+        error = ex
+    }
+    
+    assertEqual(error.constructor, Atom.error.recursive)
 })
 
 test('batched actualization', () => {
@@ -79,7 +96,27 @@ test('batched actualization', () => {
 
     count.put(2)
     subTotal.put(10)
-    Atom.executeTasks() // run deferred tasks manually
+    Atom.executeScheduledTasks() // run deferred tasks manually
 
     assertEqual(callCount, 2)
+})
+
+test('do not actualize when masters not changed', () => {
+    let callCount = 0
+
+    const source = new Atom('source', next => next ?? 1)
+    const middle = new Atom('middle', () => Math.abs(source.get()))
+    const target = new Atom('target', () => {
+        callCount += 1
+        return middle.get()
+    })
+
+    target.get()
+    assertEqual(callCount, 1)
+
+    debugger
+    source.put(-1)
+    target.get()
+
+    assertEqual(callCount, 1)
 })

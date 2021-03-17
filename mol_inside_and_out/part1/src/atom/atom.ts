@@ -1,7 +1,12 @@
+class AtomErrorRecursive extends Error {
+    constructor() {
+        super('Recursive dependency')
+    }
+}
 class Atom<Value> {
     static running: Atom<any>
 
-    status: 'actual'|'outdated' = 'outdated'
+    status: 'actual' | 'outdated' | 'pulling' = 'outdated'
 
     cachedValue: Value
     cachedNext: any
@@ -16,6 +21,10 @@ class Atom<Value> {
     ) {}
     
     get() {
+        if (this.status === 'pulling') {
+            throw new AtomErrorRecursive
+        }
+
         if (Atom.running) {
             Atom.running.masters.add(this)
             this.slaves.add(Atom.running)
@@ -24,12 +33,15 @@ class Atom<Value> {
         if (this.status === 'outdated') {
             this.actualize()
         }
+
         return this.cachedValue
     }
     
     actualize() {
         const slave = Atom.running
         Atom.running = this
+
+        this.status = 'pulling'
 
         this.cachedValue = this.pull()
         this.status = 'actual'
@@ -45,7 +57,7 @@ class Atom<Value> {
         this.cachedNext = next
         this.outdate()
     }
-    
+
     outdate() {
         this.status = 'outdated'
 
@@ -55,7 +67,7 @@ class Atom<Value> {
         
         if (this.autorun === true) {
             Atom.scheduleTask(this, () => this.actualize())
-            setTimeout(() => Atom.executeTasks(), 0)
+            setTimeout(() => Atom.executeScheduledTasks())
         }
     }
     
@@ -65,7 +77,7 @@ class Atom<Value> {
         this.queue.push({ key, task })
     }
 
-    static executeTasks() {
+    static executeScheduledTasks() {
         while (this.queue.length > 0) {
             const deferred = this.queue.pop()
             if (deferred === null) continue
@@ -74,6 +86,10 @@ class Atom<Value> {
             }
             deferred.task()
         }
+    }
+    
+    static error = {
+        recursive: AtomErrorRecursive,
     }
 }
 

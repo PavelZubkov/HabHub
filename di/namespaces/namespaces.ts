@@ -1,0 +1,3 @@
+namespace $ {
+	export type $ = typeof $
+}
